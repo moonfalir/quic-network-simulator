@@ -2,8 +2,7 @@ version: "3.7"
 
 services:
   sim:
-    build: ./sim
-    image: sim
+    image: martenseemann/quic-network-simulator
     container_name: sim
     hostname: sim
     stdin_open: true
@@ -56,7 +55,6 @@ services:
       - CLIENT_PARAMS=$CLIENT_PARAMS
     depends_on:
       - sim
-      - server
     cap_add: 
       - NET_ADMIN
     networks:
