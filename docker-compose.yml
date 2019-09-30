@@ -2,9 +2,9 @@ version: "3.7"
 
 services:
   sim:
-    image: sim
     container_name: sim
     hostname: sim
+    build: sim
     stdin_open: true
     tty: true
     volumes:

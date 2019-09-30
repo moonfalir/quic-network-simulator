@@ -33,5 +33,5 @@ int main(int argc, char *argv[]) {
   ipv4.SetBase("192.168.50.0", "255.255.255.0");
   Ipv4InterfaceContainer interfaces = ipv4.Assign(devices);
 
-  sim.Run(Seconds(36000));
+  sim.Run(Seconds(30));
 }
