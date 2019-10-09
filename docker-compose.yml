@@ -29,7 +29,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - $LOGDIR/logs/server:/logs
+      - $LOGDIR/server:/logs
     environment:
       - ROLE=server
       - SERVER_PARAMS=$SERVER_PARAMS
@@ -49,7 +49,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - $LOGDIR/logs/client:/logs
+      - $LOGDIR/client:/logs
     environment:
       - ROLE=client
       - CLIENT_PARAMS=$CLIENT_PARAMS
