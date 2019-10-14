@@ -1,11 +1,11 @@
-import os, random, shutil, subprocess, string, logging, sys, tempfile, argparse, re
+import copy, os, random, shutil, subprocess, string, logging, sys, tempfile, argparse, re
 from typing import List
 from termcolor import colored
 from enum import Enum
 import prettytable
 
 import testcases
-from run_these_tests import TESTCASES
+from testcases import TESTCASES
 from implementations import IMPLEMENTATIONS
 
 def get_args():
@@ -15,6 +15,8 @@ def get_args():
                       help='turn on debug logs')
   parser.add_argument("-s", "--server", help="server implementations (comma-separated)")
   parser.add_argument("-c", "--client", help="client implementations (comma-separated)")
+  parser.add_argument("-t", "--test", help="test cases (comma-separatated)")
+  parser.add_argument("-r", "--replace", help="replace path of implementation. Example: -r myquicimpl=dockertagname")
   return parser.parse_args()
 
 def random_string(length: int):
@@ -38,8 +40,10 @@ class InteropRunner:
   compliant = {}
   _servers = {}
   _clients = {}
+  _tests = []
 
-  def __init__(self, servers: dict, clients: dict):
+  def __init__(self, servers: dict, clients: dict, tests: List[testcases.TestCase]):
+    self._tests = tests
     self._servers = servers
     self._clients = clients
     for server in servers:
@@ -64,7 +68,7 @@ class InteropRunner:
     client_log_dir = tempfile.TemporaryDirectory(dir="/tmp", prefix="logs_client_")
 
     # check that the client is capable of returning UNSUPPORTED
-    logging.info("Checking compliance of %s client", name)
+    logging.debug("Checking compliance of %s client", name)
     cmd = (
         "TESTCASE=" + random_string(6) + " "
         "SERVER_LOGS=/dev/null "
@@ -75,16 +79,16 @@ class InteropRunner:
         "CLIENT=" + IMPLEMENTATIONS[name] + " "
         "docker-compose -f ../docker-compose.yml -f interop.yml up --timeout 0 --abort-on-container-exit sim client"
       )
-    output = subprocess.run(cmd, shell=True, capture_output=True)
+    output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if not self._is_unsupported(output.stdout.splitlines()):
       logging.error("%s client not compliant.", name)
       logging.debug("%s", output.stdout.decode('utf-8'))
       self.compliant[name] = False
       return False
-    logging.info("%s client compliant.", name)
+    logging.debug("%s client compliant.", name)
 
     # check that the server is capable of returning UNSUPPORTED
-    logging.info("Checking compliance of %s server", name)
+    logging.debug("Checking compliance of %s server", name)
     sim_log_dir.cleanup()
     sim_log_dir = tempfile.TemporaryDirectory(dir="/tmp", prefix="logs_sim_")
     server_log_dir = tempfile.TemporaryDirectory(dir="/tmp", prefix="logs_server_")
@@ -97,7 +101,7 @@ class InteropRunner:
         "SERVER=" + IMPLEMENTATIONS[name] + " "
         "docker-compose -f ../docker-compose.yml -f interop.yml up server"
       )
-    output = subprocess.run(cmd, shell=True, capture_output=True)
+    output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if not self._is_unsupported(output.stdout.splitlines()):
       logging.error("%s server not compliant.", name)
       logging.debug("%s", output.stdout.decode('utf-8'))
@@ -160,7 +164,7 @@ class InteropRunner:
       "REQUESTS=\"" + reqs + "\" "
       "docker-compose -f ../docker-compose.yml -f interop.yml up --abort-on-container-exit --timeout 1"
     )
-    output = subprocess.run(cmd, shell=True, capture_output=True)
+    output = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     logging.debug("%s", output.stdout.decode('utf-8'))
 
     lines = output.stdout.splitlines()
@@ -197,13 +201,13 @@ class InteropRunner:
     
     for server in self._servers:
       for client in self._clients:
-        print("Running with server:", server, "and client:", client)
+        logging.info("Running with server %s (%s) and client %s (%s)", server, self._servers[server], client, self._clients[client])
         if not (self._check_impl_is_compliant(server) and self._check_impl_is_compliant(client)):
-          print("Not compliant, skipping")
+          logging.info("Not compliant, skipping")
           continue
 
         # run the test cases
-        for testcase in TESTCASES:
+        for testcase in self._tests:
           status = self._run_testcase(server, client, testcase)
           self.results[server][client][status] += [ testcase ]
 
@@ -216,17 +220,43 @@ console = logging.StreamHandler(stream=sys.stderr)
 if get_args().debug:
   console.setLevel(logging.DEBUG)
 else:
-  console.setLevel(logging.WARNING)
+  console.setLevel(logging.INFO)
 logger.addHandler(console)
+
+implementations = copy.deepcopy(IMPLEMENTATIONS)
+replace_arg = get_args().replace
+if replace_arg:
+  for s in replace_arg.split(","):
+    pair = s.split("=")
+    if len(pair) != 2:
+      sys.exit("Invalid format for replace")
+    name, image = pair[0], pair[1]
+    if name not in IMPLEMENTATIONS:
+      sys.exit("Implementation " + name + " not found.")
+    implementations[name] = image
 
 def get_impls(arg) -> dict:
   if not arg:
-    return IMPLEMENTATIONS
+    return implementations
   impls = {}
   for s in arg.split(","):
-    if s not in IMPLEMENTATIONS:
+    if s not in implementations:
       sys.exit("Implementation " + s + " not found.")
-    impls[s] = IMPLEMENTATIONS[s]
+    impls[s] = implementations[s]
   return impls
+
+def get_tests(arg) -> List[testcases.TestCase]:
+  if not arg:
+    return TESTCASES
+  tests = []
+  for t in arg.split(","):
+    if t not in [ str(n) for n in TESTCASES ]:
+      sys.exit("Test case " + t + " not found.")
+    tests += [ n for n in TESTCASES if str(n)==t ]
+  return tests 
     
-InteropRunner(get_impls(get_args().server), get_impls(get_args().client)).run()
+InteropRunner(
+  servers=get_impls(get_args().server), 
+  clients=get_impls(get_args().client),
+  tests=get_tests(get_args().test),
+).run()
