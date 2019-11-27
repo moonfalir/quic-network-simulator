@@ -33,6 +33,7 @@ services:
     environment:
       - ROLE=server
       - SERVER_PARAMS=$SERVER_PARAMS
+      - CURTIME=$CURTIME
     depends_on:
       - sim
     cap_add: 
@@ -53,6 +54,7 @@ services:
     environment:
       - ROLE=client
       - CLIENT_PARAMS=$CLIENT_PARAMS
+      - CURTIME=$CURTIME
     depends_on:
       - sim
     cap_add: 
