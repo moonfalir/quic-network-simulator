@@ -57,6 +57,7 @@ services:
       - CURTIME=$CURTIME
     depends_on:
       - sim
+      - server
     cap_add: 
       - NET_ADMIN
     networks:
