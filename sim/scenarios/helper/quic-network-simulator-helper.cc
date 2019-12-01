@@ -1,3 +1,4 @@
+#include <csignal>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,13 @@
 #include "quic-network-simulator-helper.h"
 
 using namespace ns3;
+
+void onSignal(int signum) {
+  std::cout << "Received signal: " << signum << std::endl;
+  // see https://gitlab.com/nsnam/ns-3-dev/issues/102
+  Simulator::Stop();
+  NS_FATAL_ERROR(signum);
+}
 
 void installNetDevice(Ptr<Node> node, std::string deviceName, Mac48AddressValue macAddress, Ipv4InterfaceAddress ipv4Address) {
   EmuFdNetDeviceHelper emu;
@@ -39,29 +47,29 @@ QuicNetworkSimulatorHelper::QuicNetworkSimulatorHelper() {
   left_node_ = nodes.Get(0);
   right_node_ = nodes.Get(1);
 
-  NS_LOG_INFO("Create eth0");
   installNetDevice(left_node_, "eth0", Mac48AddressValue("02:51:55:49:43:00"), Ipv4InterfaceAddress("193.167.0.2", "255.255.255.0"));
-  NS_LOG_INFO("Create eth1");
   installNetDevice(right_node_, "eth1", Mac48AddressValue("02:51:55:49:43:01"), Ipv4InterfaceAddress("193.167.100.2", "255.255.255.0"));
 }
 
 void QuicNetworkSimulatorHelper::Run(Time duration) {
+  signal(SIGTERM, onSignal);
+  signal(SIGINT, onSignal);
+  signal(SIGKILL, onSignal);
+
   Ipv4GlobalRoutingHelper::PopulateRoutingTables();
   // write the routing table to file
   Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper>("dynamic-global-routing.routes", std::ios::out);
   Ipv4RoutingHelper::PrintRoutingTableAllAt(Seconds(0.), routingStream);
 
-  NS_LOG_INFO("Run Emulation.");
   Simulator::Stop(duration);
   RunSynchronizer();
   Simulator::Run();
   Simulator::Destroy();
-  NS_LOG_INFO("Done.");
 }
 
 void QuicNetworkSimulatorHelper::RunSynchronizer() const {
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if(sockfd < 0) NS_LOG_ERROR("ERROR opening socket");
+  NS_ABORT_MSG_IF(sockfd < 0, "ERROR opening socket");
 
   struct sockaddr_in addr;
   bzero((char *) &addr, sizeof(addr));
@@ -70,7 +78,8 @@ void QuicNetworkSimulatorHelper::RunSynchronizer() const {
   addr.sin_addr.s_addr = INADDR_ANY;  
   addr.sin_port = htons(57832);
 
-  if(bind(sockfd, (struct sockaddr *) &addr, sizeof(addr)) < 0) NS_LOG_ERROR("ERROR on binding");
+  int res = bind(sockfd, (struct sockaddr *) &addr, sizeof(addr));
+  NS_ABORT_MSG_IF(res < 0, "ERROR on binding");
   // We never intend to accept any of the connections.
   // Use a large backlog queue instead.
   listen(sockfd, 100);
