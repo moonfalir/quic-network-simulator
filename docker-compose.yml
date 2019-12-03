@@ -29,11 +29,10 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - $LOGDIR:/logs
+      - $SERVER_LOGS:/logs
     environment:
       - ROLE=server
       - SERVER_PARAMS=$SERVER_PARAMS
-      - CURTIME=$CURTIME
       - COMMIT=$SV_COMMIT
     depends_on:
       - sim
@@ -53,11 +52,10 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - $LOGDIR:/logs
+      - $CLIENT_LOGS:/logs
     environment:
       - ROLE=client
       - CLIENT_PARAMS=$CLIENT_PARAMS
-      - CURTIME=$CURTIME
       - COMMIT=$CL_COMMIT
     depends_on:
       - sim
