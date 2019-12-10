@@ -29,7 +29,7 @@ RUN ./waf build  && \
 FROM ubuntu:19.10
 
 RUN apt-get update && \
-  apt-get install -y net-tools iptables && \
+  apt-get install -y net-tools iptables wget && \
   apt-get clean
 
 WORKDIR /ns3
@@ -44,5 +44,7 @@ ENV LD_LIBRARY_PATH="/ns3/lib"
 COPY run.sh .
 RUN chmod +x run.sh
 RUN mkdir /logs
+
+RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh && chmod +x wait-for-it.sh
 
 ENTRYPOINT [ "./run.sh" ]

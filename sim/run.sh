@@ -18,6 +18,10 @@ ifconfig eth1 promisc
 iptables -A FORWARD -i eth0 -o eth1 -j DROP
 iptables -A FORWARD -i eth1 -o eth0 -j DROP
 
+echo "Waiting for client and server to be build"
+./wait-for-it.sh server:57830 -s -t 30
+./wait-for-it.sh client:57831 -s -t 30
+
 echo "Using scenario:" $SCENARIO
 
 eval ./scratch/"$SCENARIO &"
