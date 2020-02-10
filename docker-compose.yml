@@ -8,7 +8,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - ./logs/sim:/logs
+      - $SERVER_LOGS:/logs
     environment:
       - SCENARIO=$SCENARIO
     cap_add: 
