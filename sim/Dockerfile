@@ -29,7 +29,7 @@ RUN ./waf build  && \
 FROM ubuntu:19.10
 
 RUN apt-get update && \
-  apt-get install -y net-tools iptables wget && \
+  apt-get install -y net-tools iptables wget iproute2 && \
   apt-get clean
 
 WORKDIR /ns3
